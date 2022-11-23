@@ -1,0 +1,7 @@
+{
+  "name": "ble-client",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}
