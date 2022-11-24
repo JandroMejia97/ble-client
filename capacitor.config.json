@@ -2,5 +2,15 @@
 	"appId": "io.ionic.starter",
 	"appName": "ble-client",
 	"webDir": "www",
-	"bundledWebRuntime": false
+	"bundledWebRuntime": false,
+  "plugins": {
+    "BluetoothLe": {
+      "displayStrings": {
+        "scanning": "Scanning...",
+        "cancel": "Cancel",
+        "availableDevices": "Available devices",
+        "noDeviceFound": "No device found"
+      }
+    }
+  }
 }
