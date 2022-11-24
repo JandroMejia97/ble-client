@@ -1,6 +1,6 @@
 {
-	"appId": "io.ionic.starter",
-	"appName": "ble-client",
+	"appId": "app.ble.client",
+	"appName": "BLE Client",
 	"webDir": "www",
 	"bundledWebRuntime": false,
   "plugins": {
