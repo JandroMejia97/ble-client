@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
-import { Message } from '../services/data.service';
+
+import { BleDevice } from '@capacitor-community/bluetooth-le';
 
 @Component({
   selector: 'app-message',
@@ -7,7 +8,8 @@ import { Message } from '../services/data.service';
   styleUrls: ['./message.component.scss'],
 })
 export class MessageComponent {
-  @Input() message?: Message;
+  @Input()
+  device!: BleDevice;
 
   isIos() {
     const win = window as any;
