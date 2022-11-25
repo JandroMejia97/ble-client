@@ -1,7 +1,11 @@
 import { Component } from '@angular/core';
-import { AlertController, RefresherCustomEvent } from '@ionic/angular';
+import {
+  AlertController,
+  RefresherCustomEvent,
+  ToastController,
+} from '@ionic/angular';
 
-import { BleClient, ScanResult } from '@capacitor-community/bluetooth-le';
+import { BleClient, BleDevice, ScanResult } from '@capacitor-community/bluetooth-le';
 
 @Component({
   selector: 'app-home',
@@ -9,24 +13,42 @@ import { BleClient, ScanResult } from '@capacitor-community/bluetooth-le';
   styleUrls: ['home.page.scss'],
 })
 export class HomePage {
-  scanResults: ScanResult[] = [];
+  scanResults: BleDevice[] = [];
+  devices: BleDevice[] = [];
   bleIsEnabled = false;
   searchingDevices = false;
 
-  constructor(private alertController: AlertController) {}
+  constructor(
+    private toastController: ToastController,
+    private alertController: AlertController
+  ) {}
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    this.bleInitializer();
+  }
+
+  async bleInitializer(): Promise<void> {
     try {
-      await BleClient.initialize();
+      await BleClient.initialize({
+        androidNeverForLocation: true,
+      });
       console.info('BLE initialized');
 
       this.bleIsEnabled = await BleClient.isEnabled();
 
       if (!this.bleIsEnabled) {
-        console.info('Bluetooth is not enabled, trying to enable it');
-        await BleClient.enable();
+        const toast = await this.toastController.create({
+          header: 'Bluetooth is disabled',
+          message: 'Trying to enable it...',
+          duration: 1500,
+          buttons: ['OK'],
+        });
+        await toast.present();
+
+        await this.bleEnable();
       } else {
         console.info('Bluetooth is enabled');
+        this.getConnectedDevices();
       }
     } catch (error) {
       console.error({ error });
@@ -34,23 +56,70 @@ export class HomePage {
     }
   }
 
-  async startDeviceScan(): Promise<void> {
+  async bleEnable(): Promise<void> {
+    let toast: HTMLIonToastElement;
     try {
-      this.searchingDevices = true;
+      await BleClient.enable();
+      this.bleIsEnabled = true;
+      this.getConnectedDevices();
+
+      toast = await this.toastController.create({
+        header: 'Bluetooth enabled',
+        message: 'You can now start scanning for devices',
+        duration: 1500,
+        buttons: ['OK'],
+      });
+      await toast.present();
+
+    } catch (error) {
+      toast = await this.toastController.create({
+        header: "Bluetooth couldn't be enabled",
+        message: 'Please enable it manually',
+        duration: 3000,
+        buttons: ['OK'],
+      });
+      await toast.present();
+
+      this.bleErrorHandler(error as Error);
+    }
+  }
+
+  async getConnectedDevices(): Promise<void> {
+    try {
+      const connectedDevices = await BleClient.getDevices([]);
+      console.log({ connectedDevices });
+    } catch (error) {
+      console.error({ error });
+      this.bleErrorHandler(error as Error);
+    }
+  }
+
+  async startDeviceScan(): Promise<void> {
+    this.scanResults = [];
+    this.searchingDevices = true;
+    try {
       console.info('Starting device scan');
       await BleClient.requestLEScan({}, (scanResult: ScanResult) => {
-        console.log(`New device found: ${scanResult.device.name}`);
-        this.scanResults.push(scanResult);
+        const foundDevice = scanResult.device;
+        foundDevice.name = scanResult.localName || foundDevice.name;
+        console.log(`New device found: ${foundDevice.name}`);
+        this.scanResults.push(foundDevice);
       });
       console.info('Scan started');
 
       setTimeout(async () => {
         console.info('Trying to stop scanning');
         await BleClient.stopLEScan();
-        console.log('Scan stopped');
-        console.info(`We found ${this.scanResults.length} devices`);
+        const toast = await this.toastController.create({
+          header: 'Scan stopped',
+          message: `We found ${this.scanResults.length} devices. You can now connect to one of them.`,
+          duration: 3000,
+          buttons: ['OK'],
+        });
+        await toast.present();
+
         this.searchingDevices = false;
-      }, 5000);
+      }, 60000);
     } catch (error) {
       console.error({ error });
       this.bleErrorHandler(error as Error);

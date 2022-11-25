@@ -22,19 +22,30 @@
     </ion-toolbar>
   </ion-header>
 
-  <ion-list *ngIf="scanResults.length > 0">
-    <ion-item
-      [detail]="false"
-      *ngFor="let scanResult of scanResults">
-      <ion-label class="ion-text-wrap">
-        <h2>
-          {{ scanResult.device.name }}
-        </h2>
-        <h3>
-          {{ scanResult.device.deviceId }}
-        </h3>
+  <ion-list *ngIf="devices.length > 0">
+    <ion-list-header>
+      <ion-label>
+        Previously connected devices
       </ion-label>
-    </ion-item>
+    </ion-list-header>
+    <ng-container *ngFor="let device of devices">
+      <ng-container
+        *ngTemplateOutlet="itemTemplate;context:device ">
+      </ng-container>
+    </ng-container>
+  </ion-list>
+
+  <ion-list *ngIf="scanResults.length > 0">
+    <ion-list-header>
+      <ion-label>
+        Scan Results
+      </ion-label>
+    </ion-list-header>
+    <ng-container *ngFor="let device of scanResults">
+      <ng-container
+        *ngTemplateOutlet="itemTemplate;context:device ">
+      </ng-container>
+    </ng-container>
   </ion-list>
   <ion-button
     expand="block"
@@ -57,4 +68,18 @@
     slot="end"
     name="bluetooth">
   </ion-icon>
+</ng-template>
+
+<ng-template #itemTemplate let-deviceName="name" let-deviceId="deviceId">
+  <ion-item
+    [detail]="false">
+    <ion-label class="ion-text-wrap">
+      <h2>
+        {{ deviceName ?? 'UNKNOWN' }}
+      </h2>
+      <h3>
+        {{ deviceId }}
+      </h3>
+    </ion-label>
+  </ion-item>
 </ng-template>
