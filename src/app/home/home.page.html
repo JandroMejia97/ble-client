@@ -22,33 +22,54 @@
     </ion-toolbar>
   </ion-header>
 
-  <ion-list *ngIf="devices.length > 0">
+  <ion-list>
     <ion-list-header>
       <ion-label>
         Previously connected devices
       </ion-label>
     </ion-list-header>
-    <ng-container *ngFor="let device of devices">
-      <ng-container
-        *ngTemplateOutlet="itemTemplate;context:device ">
+    <ng-container *ngIf="devices.length > 0; else notConnected">
+      <ng-container *ngFor="let device of devices; trackBy: trackByDeviceId">
+        <ng-container
+          *ngTemplateOutlet="itemTemplate;context:{ $implicit: device }">
+        </ng-container>
       </ng-container>
     </ng-container>
+    <ng-template #notConnected>
+      <ion-item lines="none">
+        <ion-label>
+          No devices connected
+        </ion-label>
+      </ion-item>
+    </ng-template>
   </ion-list>
 
-  <ion-list *ngIf="scanResults.length > 0">
+  <ion-list
+    *ngIf="scanResults"
+    class="ion-margin-top">
     <ion-list-header>
       <ion-label>
         Scan Results
       </ion-label>
     </ion-list-header>
-    <ng-container *ngFor="let device of scanResults">
-      <ng-container
-        *ngTemplateOutlet="itemTemplate;context:device ">
+    <ng-container *ngIf="!searchingDevices && (scanResults?.length ?? 0) > 0; else notResults">
+      <ng-container *ngFor="let device of scanResults; trackBy: trackByDeviceId">
+        <ng-container
+          *ngTemplateOutlet="itemTemplate;context:{ $implicit: device }">
+        </ng-container>
       </ng-container>
     </ng-container>
+    <ng-template #notResults>
+      <ion-item lines="none">
+        <ion-label>
+          No devices found
+        </ion-label>
+      </ion-item>
+    </ng-template>
   </ion-list>
   <ion-button
     expand="block"
+    class="ion-margin-top"
     (click)="startDeviceScan()"
     [disabled]="!bleIsEnabled || searchingDevices">
     <ng-container *ngIf="searchingDevices; else searchDevices">
@@ -70,15 +91,16 @@
   </ion-icon>
 </ng-template>
 
-<ng-template #itemTemplate let-deviceName="name" let-deviceId="deviceId">
+<ng-template #itemTemplate let-device>
   <ion-item
-    [detail]="false">
+    [detail]="false"
+    (click)="connectDevice(device)">
     <ion-label class="ion-text-wrap">
       <h2>
-        {{ deviceName ?? 'UNKNOWN' }}
+        {{ device.name ?? 'UNKNOWN' }}
       </h2>
       <h3>
-        {{ deviceId }}
+        {{ device.deviceId }}
       </h3>
     </ion-label>
   </ion-item>

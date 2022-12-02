@@ -1,30 +1,46 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import {
   AlertController,
+  Platform,
   RefresherCustomEvent,
   ToastController,
 } from '@ionic/angular';
 
-import { BleClient, BleDevice, ScanResult } from '@capacitor-community/bluetooth-le';
+import {
+  BleClient,
+  BleDevice,
+  ScanResult,
+} from '@capacitor-community/bluetooth-le';
+import { from, interval, Observable, Subscription, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
 })
-export class HomePage {
-  scanResults: BleDevice[] = [];
+export class HomePage implements OnInit, OnDestroy {
+  scanResults: BleDevice[] | null = null;
   devices: BleDevice[] = [];
   bleIsEnabled = false;
   searchingDevices = false;
+  private bleEnabled$: Observable<boolean> = interval(5000).pipe(
+    switchMap(() => from(BleClient.isEnabled())),
+  );
+  private subscription: Subscription | null = null;
 
   constructor(
+    private platform: Platform,
     private toastController: ToastController,
     private alertController: AlertController
   ) {}
 
   ngOnInit(): void {
     this.bleInitializer();
+  }
+
+  async ngOnDestroy(): Promise<void> {
+    this.subscription?.unsubscribe();
+    await BleClient.stopLEScan();
   }
 
   async bleInitializer(): Promise<void> {
@@ -51,7 +67,6 @@ export class HomePage {
         this.getConnectedDevices();
       }
     } catch (error) {
-      console.error({ error });
       this.bleErrorHandler(error as Error);
     }
   }
@@ -61,7 +76,6 @@ export class HomePage {
     try {
       await BleClient.enable();
       this.bleIsEnabled = true;
-      this.getConnectedDevices();
 
       toast = await this.toastController.create({
         header: 'Bluetooth enabled',
@@ -71,6 +85,7 @@ export class HomePage {
       });
       await toast.present();
 
+      await this.getConnectedDevices();
     } catch (error) {
       toast = await this.toastController.create({
         header: "Bluetooth couldn't be enabled",
@@ -81,15 +96,23 @@ export class HomePage {
       await toast.present();
 
       this.bleErrorHandler(error as Error);
+
+      this.subscription = this.bleEnabled$.subscribe({
+        next: (isEnabled) => {
+          if (isEnabled) {
+            this.bleIsEnabled = true;
+            this.getConnectedDevices();
+          }
+        }
+      });
     }
   }
 
   async getConnectedDevices(): Promise<void> {
     try {
-      const connectedDevices = await BleClient.getDevices([]);
-      console.log({ connectedDevices });
+      this.devices = await BleClient.getConnectedDevices([]);
+      console.info(`Found ${this.devices.length} connected devices`);
     } catch (error) {
-      console.error({ error });
       this.bleErrorHandler(error as Error);
     }
   }
@@ -103,7 +126,7 @@ export class HomePage {
         const foundDevice = scanResult.device;
         foundDevice.name = scanResult.localName || foundDevice.name;
         console.log(`New device found: ${foundDevice.name}`);
-        this.scanResults.push(foundDevice);
+        this.scanResults?.push(foundDevice);
       });
       console.info('Scan started');
 
@@ -112,22 +135,42 @@ export class HomePage {
         await BleClient.stopLEScan();
         const toast = await this.toastController.create({
           header: 'Scan stopped',
-          message: `We found ${this.scanResults.length} devices. You can now connect to one of them.`,
+          message: `We found ${this.scanResults?.length ?? 0} devices. You can now connect to one of them.`,
           duration: 3000,
           buttons: ['OK'],
         });
         await toast.present();
 
         this.searchingDevices = false;
-      }, 60000);
+      }, 30000);
     } catch (error) {
-      console.error({ error });
       this.bleErrorHandler(error as Error);
       this.searchingDevices = false;
     }
   }
 
+  async connectDevice(device: BleDevice): Promise<void> {
+    try {
+      await BleClient.connect(device.deviceId);
+
+      this.devices.push(device);
+      this.scanResults = this.scanResults?.filter((d) => d.deviceId !== device.deviceId) ?? [];
+
+      const toast = await this.toastController.create({
+        header: 'Device connected',
+        message: 'You can now start communicating with it',
+        duration: 3000,
+        buttons: ['OK'],
+      });
+
+      await toast.present();
+    } catch (error) {
+      this.bleErrorHandler(error as Error);
+    }
+  }
+
   async bleErrorHandler(error: Error): Promise<void> {
+    console.error({ error });
     const alert = await this.alertController.create({
       header: error.name || 'Error',
       message: error.message,
@@ -135,6 +178,10 @@ export class HomePage {
     });
 
     await alert.present();
+  }
+
+  trackByDeviceId(index: number, device: BleDevice): string {
+    return device.deviceId;
   }
 
   async refresh(ev: any) {
